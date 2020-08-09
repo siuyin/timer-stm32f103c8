@@ -73,7 +73,8 @@ void flashLEDTask(void) {
 	case off:
 		state = on1;
 		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET); // turn on LED
-		htim2.Instance->CNT = 0xffff - 5000;
+		// htim2.Instance->CNT = 0xffff - 5000; // to demonstrate the race-condition when task yields to main
+		htim2.Instance->CNT = 0;
 		nt = htim2.Instance->CNT + 5000; // leave LED on for n microseconds, max 0xffff
 		return;
 	case on1:
