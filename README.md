@@ -1,5 +1,7 @@
 # Lightweight cooperative multitasking.
 
+main.c is at Core/Src/main.c.
+
 ## Setup
 1. Use the built-in cubeMx to generate code.
 
