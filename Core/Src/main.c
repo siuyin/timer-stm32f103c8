@@ -57,6 +57,51 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void flashLEDMilliTask(void) {
+	typedef enum states {
+		off, on1, off1, on2,
+	} stateT;
+	static stateT state;
+
+	static uint32_t nrt;	// next run tick
+	if (HAL_GetTick() < nrt) {	// not yet time to run
+		return;
+	}
+
+	static uint16_t nt; // next t
+	switch (state) {
+	case off:
+		state = on1;
+		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET); // turn on LED
+		// htim2.Instance->CNT = 0xffff - 5000; // to demonstrate the race-condition when task yields to main. Stil racy even if clock rate is increased to max (72 MHz).
+		nt = HAL_GetTick() + 5;
+		return;
+	case on1:
+		if (HAL_GetTick() < nt) {
+			return;
+		}
+		state = off1;
+		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET); // turn off LED
+		nt += 50;
+		return;
+	case off1:
+		if (HAL_GetTick() < nt) {
+			return;
+		}
+		state = on2;
+		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET); // turn on LED
+		nt += 5;
+		return;
+	case on2:
+		if (HAL_GetTick() < nt) {
+			return;
+		}
+		state = off;
+		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET); // turn off LED
+		nrt += 1000;	// next run in n milliseconds
+		return;
+	}
+}
 void flashLEDTask(void) {
 	typedef enum states {
 		off, on1, off1, on2,
@@ -73,7 +118,7 @@ void flashLEDTask(void) {
 	case off:
 		state = on1;
 		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET); // turn on LED
-		// htim2.Instance->CNT = 0xffff - 5000; // to demonstrate the race-condition when task yields to main
+		// htim2.Instance->CNT = 0xffff - 5000; // to demonstrate the race-condition when task yields to main. Stil racy even if clock rate is increased to max (72 MHz).
 		htim2.Instance->CNT = 0;
 		nt = htim2.Instance->CNT + 5000; // leave LED on for n microseconds, max 0xffff
 		return;
@@ -144,7 +189,8 @@ int main(void) {
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
-		flashLEDTask();
+		//flashLEDTask();
+		flashLEDMilliTask();
 
 	}
 	/* USER CODE END 3 */
@@ -162,7 +208,11 @@ void SystemClock_Config(void) {
 	 */
 	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
 	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+	RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
+	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+	RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
 	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
 		Error_Handler();
 	}
@@ -170,12 +220,12 @@ void SystemClock_Config(void) {
 	 */
 	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
 			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
-	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSE;
+	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
 	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
 	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK) {
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) {
 		Error_Handler();
 	}
 }
@@ -198,9 +248,9 @@ static void MX_TIM2_Init(void) {
 
 	/* USER CODE END TIM2_Init 1 */
 	htim2.Instance = TIM2;
-	htim2.Init.Prescaler = 8;
+	htim2.Init.Prescaler = 72;
 	htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim2.Init.Period = 500;
+	htim2.Init.Period = 0xffff;
 	htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
 	if (HAL_TIM_Base_Init(&htim2) != HAL_OK) {

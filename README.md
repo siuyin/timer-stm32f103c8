@@ -15,3 +15,6 @@ main.c is at Core/Src/main.c.
 
 1. This implies other tasks cannot share the
  timer.
+
+1. Work OK at millisecond, but is racy at
+ microsecond resolution.
