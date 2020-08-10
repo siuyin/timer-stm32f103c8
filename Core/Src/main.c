@@ -62,38 +62,37 @@ void flashLEDMilliTask(void) {
 		off, on1, off1, on2,
 	} stateT;
 	static stateT state;
-
 	static uint32_t nrt;	// next run tick
-	if (HAL_GetTick() < nrt) {	// not yet time to run
-		return;
-	}
 
-	static uint16_t nt; // next t
 	switch (state) {
 	case off:
+		if (HAL_GetTick() < nrt) {	// not yet time to run
+			return;
+		}
+
 		state = on1;
 		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET); // turn on LED
 		// htim2.Instance->CNT = 0xffff - 5000; // to demonstrate the race-condition when task yields to main. Stil racy even if clock rate is increased to max (72 MHz).
-		nt = HAL_GetTick() + 5;
+		nrt = HAL_GetTick() + 5;
 		return;
 	case on1:
-		if (HAL_GetTick() < nt) {
+		if (HAL_GetTick() < nrt) {
 			return;
 		}
 		state = off1;
 		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET); // turn off LED
-		nt += 50;
+		nrt += 50;
 		return;
 	case off1:
-		if (HAL_GetTick() < nt) {
+		if (HAL_GetTick() < nrt) {
 			return;
 		}
 		state = on2;
 		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET); // turn on LED
-		nt += 5;
+		nrt += 5;
 		return;
 	case on2:
-		if (HAL_GetTick() < nt) {
+		if (HAL_GetTick() < nrt) {
 			return;
 		}
 		state = off;
@@ -189,7 +188,7 @@ int main(void) {
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
-		//flashLEDTask();
+//		flashLEDTask();
 		flashLEDMilliTask();
 
 	}
