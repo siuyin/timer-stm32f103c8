@@ -66,7 +66,7 @@ void flashLEDMilliTask(void) {
 
 	switch (state) {
 	case off:
-		if (HAL_GetTick() < nrt) {	// not yet time to run
+		if (HAL_GetTick() != nrt) {	// not yet time to run
 			return;
 		}
 
@@ -76,7 +76,7 @@ void flashLEDMilliTask(void) {
 		nrt = HAL_GetTick() + 5;
 		return;
 	case on1:
-		if (HAL_GetTick() < nrt) {
+		if (HAL_GetTick() != nrt) {
 			return;
 		}
 		state = off1;
@@ -84,7 +84,7 @@ void flashLEDMilliTask(void) {
 		nrt += 50;
 		return;
 	case off1:
-		if (HAL_GetTick() < nrt) {
+		if (HAL_GetTick() != nrt) {
 			return;
 		}
 		state = on2;
@@ -92,60 +92,43 @@ void flashLEDMilliTask(void) {
 		nrt += 5;
 		return;
 	case on2:
-		if (HAL_GetTick() < nrt) {
+		if (HAL_GetTick() != nrt) {
 			return;
 		}
 		state = off;
 		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET); // turn off LED
-		nrt += 1000;	// next run in n milliseconds
+		nrt += 5000;	// next run in n milliseconds
 		return;
 	}
 }
-void flashLEDTask(void) {
-	typedef enum states {
-		off, on1, off1, on2,
-	} stateT;
-	static stateT state;
+void blockingDoubleMicroFlash(void) {
+	uint16_t t = htim2.Instance->CNT;	// tick in microseconds
 
+	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET); // turn on LED
+	t += 200;	// keep on for n microseconds
+	while (htim2.Instance->CNT != t) {
+	}
+
+	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET); // turn off LED
+	t += 200;	// keep off for n microseconds
+	while (htim2.Instance->CNT != t) {
+	}
+
+	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET); // turn on LED
+	t += 200;	// keep on for n microseconds
+	while (htim2.Instance->CNT != t) {
+	}
+
+	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET); // turn off LED
+}
+void flashLEDMicroTask(void) {
 	static uint32_t nrt;	// next run tick
-	if (HAL_GetTick() < nrt) {	// not yet time to run
+	if (HAL_GetTick() != nrt) {	// not yet time to run
 		return;
 	}
 
-	static uint16_t nt; // next t
-	switch (state) {
-	case off:
-		state = on1;
-		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET); // turn on LED
-		// htim2.Instance->CNT = 0xffff - 5000; // to demonstrate the race-condition when task yields to main. Stil racy even if clock rate is increased to max (72 MHz).
-		htim2.Instance->CNT = 0;
-		nt = htim2.Instance->CNT + 5000; // leave LED on for n microseconds, max 0xffff
-		return;
-	case on1:
-		if (htim2.Instance->CNT < nt) {
-			return;
-		}
-		state = off1;
-		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET); // turn off LED
-		nt += 50000; // keep LED off for n microseconds, max 0xffff
-		return;
-	case off1:
-		if (htim2.Instance->CNT < nt) {
-			return;
-		}
-		state = on2;
-		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET); // turn on LED
-		nt += 5000; // leave LED on for n microseconds, max 0xffff
-		return;
-	case on2:
-		if (htim2.Instance->CNT < nt) {
-			return;
-		}
-		state = off;
-		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET); // turn off LED
-		nrt += 1000;	// next run in n milliseconds
-		return;
-	}
+	nrt += 1000;
+	blockingDoubleMicroFlash();
 }
 /* USER CODE END 0 */
 
@@ -188,7 +171,7 @@ int main(void) {
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
-//		flashLEDTask();
+		flashLEDMicroTask();
 		flashLEDMilliTask();
 
 	}

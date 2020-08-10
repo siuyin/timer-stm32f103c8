@@ -19,3 +19,8 @@ main.c is at Core/Src/main.c.
 1. INCORRECT: Works OK at millisecond, but is racy at
  microsecond resolution.
  Correction -- still racy at millisecond resolution.
+
+1. Revised flash millis to avoid race condition.
+
+## blocking microsecond wait
+1. Added blocking microsecond led flash routine.
